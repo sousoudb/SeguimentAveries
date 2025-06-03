@@ -15,8 +15,7 @@ if uploaded_file is not None:
         else:
             df = pd.read_excel(uploaded_file, engine="openpyxl")
 
-        df.columns = df.columns.str.strip().str.lower().str.replace("#", "").str.replace(" ", "_")
-        
+    
         if "#Ordre Treball" not in df.columns or "Obs. Tècniques" not in df.columns:
             st.error("L'arxiu no conté les columnes requerides: 'ordre_treball' i/o 'obs._tecniques'")
         else:

@@ -14,8 +14,9 @@ if uploaded_file is not None:
             df = pd.read_excel(uploaded_file, engine="xlrd")
         else:
             df = pd.read_excel(uploaded_file, engine="openpyxl")
+        
+        st.write("Columnes carregades:", df.columns.tolist())
 
-    
         if "#Ordre Treball" not in df.columns or "Obs. Tècniques" not in df.columns:
             st.error("L'arxiu no conté les columnes requerides: 'ordre_treball' i/o 'obs._tecniques'")
         else:

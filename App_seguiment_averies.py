@@ -55,8 +55,10 @@ if uploaded_file is not None:
                 else:
                     return "Revisar"
 
-            df_grouped["estat_actual"] = df_grouped["obs._tecniques"].apply(detectar_estat)
+            df_grouped["estat_actual"] = df_grouped["Obs. Tècniques"].apply(detectar_estat)
+
             df_grouped["prioritat"] = df_grouped["estat_actual"].apply(assignar_prioritat)
+            
 
             st.subheader("Resum d'estats")
             st.dataframe(df_grouped["estat_actual"].value_counts().rename_axis("Estat").reset_index(name="Comptador"))

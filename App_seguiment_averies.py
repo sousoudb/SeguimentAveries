@@ -21,8 +21,8 @@ if uploaded_file is not None:
         else:
             st.write(f"Total de files carregades: {len(df)}")
 
-            df_grouped = df.groupby("ordre_treball", as_index=False).agg({
-                "obs._tecniques": lambda x: " ".join(str(i) for i in x if pd.notna(i))
+            df_grouped = df.groupby("#Ordre Treball", as_index=False).agg({
+                "Obs. Tècniques": lambda x: " ".join(str(i) for i in x if pd.notna(i))
             })
 
             def detectar_estat(text):

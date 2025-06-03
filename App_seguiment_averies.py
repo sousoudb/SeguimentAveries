@@ -4,7 +4,7 @@ import re
 from io import BytesIO
 
 st.set_page_config(page_title="Seguiment d'intervencions", layout="centered")
-st.title("Seguiment d'intervencions tècniques (estat i prioritat)")
+st.title("Seguiment de reparacions EMD VH (estat i prioritat)")
 
 uploaded_file = st.file_uploader("Pujar Excel d'intervencions", type=["xlsx", "xls"])
 
@@ -16,8 +16,8 @@ if uploaded_file is not None:
             df = pd.read_excel(uploaded_file, engine="openpyxl")
 
         df.columns = df.columns.str.strip().str.lower().str.replace("#", "").str.replace(" ", "_")
-
-        if "ordre_treball" not in df.columns or "obs._tecniques" not in df.columns:
+        
+        if "#Ordre Treball" not in df.columns or "Obs. Tècniques" not in df.columns:
             st.error("L'arxiu no conté les columnes requerides: 'ordre_treball' i/o 'obs._tecniques'")
         else:
             st.write(f"Total de files carregades: {len(df)}")

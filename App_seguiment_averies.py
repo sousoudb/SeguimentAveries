@@ -1,65 +1,86 @@
 import streamlit as st
 import pandas as pd
 import re
+from io import BytesIO
 
-st.set_page_config(page_title="Seguiment intervencions", layout="centered")
-st.title("🛠️ Seguiment d'intervencions tècniques (estat i prioritat)")
+st.set_page_config(page_title="Seguiment d'intervencions", layout="centered")
+st.title("Seguiment d'intervencions tècniques (estat i prioritat)")
 
-uploaded_file = st.file_uploader("📎 Pujar Excel d'intervencions", type=["xlsx"])
+uploaded_file = st.file_uploader("Pujar Excel d'intervencions", type=["xlsx", "xls"])
 
 if uploaded_file is not None:
-    df = pd.read_excel(uploaded_file)
-    st.write("👀 Vista prèvia:")
-    st.dataframe(df.head())
+    try:
+        if uploaded_file.name.endswith(".xls"):
+            df = pd.read_excel(uploaded_file, engine="xlrd")
+        else:
+            df = pd.read_excel(uploaded_file, engine="openpyxl")
 
-    if "Obs. Tècniques" not in df.columns:
-        st.error("❌ Falta la columna 'Obs. Tècniques'")
-    else:
-        def detectar_estat(obs):
-            text = str(obs).lower()
+        df.columns = df.columns.str.strip().str.lower().str.replace("#", "").str.replace(" ", "_")
 
-            if re.search(r"reparat|resolt|tancat", text):
-                return "Possiblement resolt"
-            elif re.search(r"signatura|acceptat|tramitaci[oó]|ok", text):
-                return "Tramitació iniciada"
-            elif re.search(r"pressupost rebut|adjunt|import|aprovació", text):
-                return "Pressupost rebut"
-            elif re.search(r"pressupost|esperant|pendent", text):
-                return "Esperant pressupost"
-            elif re.search(r"garantia|manteniment|sense cost", text):
-                return "En garantia / manteniment"
-            elif re.search(r"externalitzat|enviat|portat", text):
-                return "Externalitzat"
-            elif len(text.strip()) == 0:
-                return "Sense informació"
-            else:
-                return "No classificat"
+        if "ordre_treball" not in df.columns or "obs._tecniques" not in df.columns:
+            st.error("L'arxiu no conté les columnes requerides: 'ordre_treball' i/o 'obs._tecniques'")
+        else:
+            st.write(f"Total de files carregades: {len(df)}")
 
-        def assignar_prioritat(estat):
-            if estat in ["Esperant pressupost", "Externalitzat"]:
-                return "🔴 Alta"
-            elif estat in ["Pressupost rebut"]:
-                return "🟠 Mitjana"
-            elif estat in ["Tramitació iniciada", "En garantia / manteniment"]:
-                return "🟢 Baixa"
-            else:
-                return "⚪ Revisar"
+            df_grouped = df.groupby("ordre_treball", as_index=False).agg({
+                "obs._tecniques": lambda x: " ".join(str(i) for i in x if pd.notna(i))
+            })
 
-        df["Estat actual"] = df["Obs. Tècniques"].apply(detectar_estat)
-        df["Prioritat seguiment"] = df["Estat actual"].apply(assignar_prioritat)
+            def detectar_estat(text):
+                text = str(text).lower()
+                if not text.strip():
+                    return "Sense informació"
+                if re.search(r"reparat|resolt|tancat|cerrado", text):
+                    return "Possiblement resolt"
+                elif re.search(r"signatura|acceptat|tramitaci[oó]|ok", text):
+                    return "Tramitació iniciada"
+                elif re.search(r"pressupost rebut|adjunt|import|recibido.*presupuesto", text):
+                    return "Pressupost rebut"
+                elif re.search(r"pressupost|esperant|pendent|solicita.*presupuesto|reclama", text):
+                    return "Esperant pressupost"
+                elif re.search(r"garantia|manteniment|sin coste|en garantia", text):
+                    return "En garantia / manteniment"
+                elif re.search(r"externalitzat|enviat|portat|lo lleva|dhl|nacex", text):
+                    return "Externalitzat"
+                else:
+                    return "No classificat"
 
-        st.success("✅ Fitxer analitzat. Estat i prioritat afegits.")
-        st.dataframe(df[["Obs. Tècniques", "Estat actual", "Prioritat seguiment"]].head(10))
+            def assignar_prioritat(estat):
+                if estat in ["Esperant pressupost", "Externalitzat"]:
+                    return "Alta"
+                elif estat in ["Pressupost rebut"]:
+                    return "Mitjana"
+                elif estat in ["Tramitació iniciada", "En garantia / manteniment"]:
+                    return "Baixa"
+                else:
+                    return "Revisar"
 
-        @st.cache_data
-        def convert_df(df):
-            return df.to_excel(index=False, engine="openpyxl")
+            df_grouped["estat_actual"] = df_grouped["obs._tecniques"].apply(detectar_estat)
+            df_grouped["prioritat"] = df_grouped["estat_actual"].apply(assignar_prioritat)
 
-        output = convert_df(df)
+            st.subheader("Resum d'estats")
+            st.dataframe(df_grouped["estat_actual"].value_counts().rename_axis("Estat").reset_index(name="Comptador"))
 
-        st.download_button(
-            label="📥 Descarregar Excel processat",
-            data=output,
-            file_name="seguiment_intervencions.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            st.subheader("Resum de prioritats")
+            st.dataframe(df_grouped["prioritat"].value_counts().rename_axis("Prioritat").reset_index(name="Comptador"))
+
+            st.subheader("Mostra de resultats")
+            st.dataframe(df_grouped.head(15))
+
+            def convertir_a_excel(df):
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Resultat')
+                return output.getvalue()
+
+            excel_output = convertir_a_excel(df_grouped)
+
+            st.download_button(
+                label="Descarregar resultat Excel",
+                data=excel_output,
+                file_name="resultat_intervencions.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+    except Exception as e:
+        st.error(f"Error en carregar o processar l'arxiu: {e}")
